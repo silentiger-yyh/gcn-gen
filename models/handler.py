@@ -25,11 +25,9 @@ def train(loader, criterion, args, model, epoch, scheduler, optimizer, count, do
             raise ValueError(
                 str(idx) + " loss is nan"
             )
-    # if scheduler.get_last_lr()[0] >= 1e-2 and count >= 20:
     if epoch in down_lr:
         scheduler.step()  # 动态更新学习率
         count = 0
-    # print('Training loss {:.4f}'.format(loss_total / cnt))
     return count, loss_total / cnt  # 所有batch的平均loss
 
 
