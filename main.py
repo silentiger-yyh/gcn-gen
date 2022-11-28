@@ -19,11 +19,11 @@ from utils.utils import split_data, performance, drawing_confusion_matric, drawi
 parser = argparse.ArgumentParser()
 parser.add_argument('--leads', type=int, default=12)
 parser.add_argument('--num_classes', type=int, default=4)
-parser.add_argument('--epoch', type=int, default=200)
+parser.add_argument('--epoch', type=int, default=500)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--device', type=str, default='cuda')
 parser.add_argument('--batch_size', type=int, default=64)
-parser.add_argument('--decay_rate', type=float, default=1e-5)
+parser.add_argument('--decay_rate', type=float, default=1e-3)
 parser.add_argument('--seq_len', type=int, default=5000)
 parser.add_argument('--features', type=int, default=256)
 parser.add_argument('--num-workers', type=int, default=2,
@@ -42,7 +42,7 @@ def loadData(args, epoch, k_fold):
     data_dir = os.path.join(args.data_set, 'ecg_psd')  # 数据目录
 
     label_csv = os.path.join(args.data_set, 'labels.csv')
-    train_folds, val_folds, test_folds = split_data(seed=0, k_fold=k_fold)
+    train_folds, val_folds, test_folds = split_data(seed=42, k_fold=k_fold)
 
     train_dataset = ECGPsdMuseDataset('train', data_dir, label_csv, train_folds, features=args.features)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,

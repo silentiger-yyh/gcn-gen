@@ -5,7 +5,7 @@ import torch
 from tqdm import tqdm
 
 
-down_lr = [10, 100, 300, 400]
+down_lr = [10, 50, 100, 200]
 
 
 def train(loader, criterion, args, model, epoch, scheduler, optimizer, count, down_lr_idx=None):
@@ -69,15 +69,16 @@ def save_model(model, model_dir, epoch=None, k_flod=None):
         torch.save(model.state_dict(), f)
 
 
-def load_model(model_dir, epoch=None):
-    if not model_dir:
+def load_model(model_name):
+    if not model_name:
         return
-    # epoch = str(epoch) if epoch else ''
-    file_name = os.path.join(model_dir, epoch + '_stemgnn.pt')
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
+    file_name = os.path.join(model_name)
     if not os.path.exists(file_name):
         return
     with open(file_name, 'rb') as f:
         model = torch.load(f)
     return model
+
+
+if __name__ == '__main__':
+    print(1)
