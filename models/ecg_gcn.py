@@ -112,7 +112,7 @@ class EcgGCNModel(torch.nn.Module):
         self.adaptiveavgpool = nn.AdaptiveAvgPool2d(1)
         self.adaptivemaxpool = nn.AdaptiveMaxPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(features * 12, 512),  # 将这里改成64试试看
+            nn.Linear(features * 12 + 13, 512),  # 将这里改成64试试看
             nn.LeakyReLU(),
             nn.BatchNorm1d(512),
             nn.Dropout(p=dropout_rate),
@@ -123,7 +123,7 @@ class EcgGCNModel(torch.nn.Module):
             nn.Linear(512, self.num_classes),
         )
 
-    def forward(self, x):
+    def forward(self, x, features):
         batch, c, w, n = x.shape
         gru_out = torch.FloatTensor().to(self.device)
         for i in range(w):
@@ -133,15 +133,14 @@ class EcgGCNModel(torch.nn.Module):
         x = gru_out
         adj = self.graph_learning(x)
         x = x.permute(0, 2, 1, 3).unsqueeze(2)  # (b, 4, 1, 12, features)
-        tmp = x
         input = x
         for i in range(self.gcn_layer_num):
             x = self.relu(self.gcn_layers[i](x, adj))
             x = x + input  # 残差连接，防止训练一段时间后梯度爆炸，导致loss is nan
             input = x
-        x = tmp + x
         x = x.squeeze()
         x = x.sum(1)
         x = x.reshape(x.size(0), -1)  # res:(batch,leads*4)
+        x = torch.cat((x, features), -1)
         x = self.fc(x)
         return x

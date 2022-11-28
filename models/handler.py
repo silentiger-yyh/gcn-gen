@@ -12,9 +12,9 @@ def train(loader, criterion, args, model, epoch, scheduler, optimizer, count, do
     loss_total = 0
     cnt = 0
     model.train()
-    for idx, (inputs, target) in enumerate(tqdm(loader)):
-        inputs, target = inputs.to(args.device), target.to(args.device)
-        output = model(inputs)
+    for idx, (inputs, target, feature) in enumerate(tqdm(loader)):
+        inputs, target, feature = inputs.to(args.device), target.to(args.device), feature.to(args.device)
+        output = model(inputs, feature)
         loss = criterion(output, target)
         cnt += 1
         optimizer.zero_grad()
@@ -40,31 +40,30 @@ def validation(loader, model, criterion, args):
     cnt = 0
     correct = 0
     pred_list, target_list, pred_scores = [], [], []
-    for data, label in tqdm(loader):  # Iterate in batches over the training/test dataset.
-        data = data.to(args.device)
-        label = label.to(args.device)
-        out = model(data)
+    for data, label, feature in tqdm(loader):  # Iterate in batches over the training/test dataset.
+        data, label, feature = data.to(args.device), label.to(args.device), feature.to(args.device)
+        out = model(data, feature)
         loss = criterion(out, label)
         loss_total += float(loss.item())
         cnt += 1
         pred = out.argmax(dim=1)  # Use the class with the highest probability.
         labels = label
-        # labels = label.argmax(dim=1)
         pred_list += pred.cpu().tolist()
         target_list += labels.cpu().tolist()
         pred_scores += out.cpu().tolist()
         correct += int((pred == label).sum())  # Check against ground-truth labels.
-    # print(correct / len(loader.dataset))
     return pred_list, target_list, pred_scores, (loss_total / cnt)
 
 
-def save_model(model, model_dir, epoch=None, k_flod=None):
+def save_model(model, model_dir, epoch=None, k_flod=None, acc=None):
     if model_dir is None:
         return
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
     # epoch = str(epoch)
-    file_name = os.path.join(model_dir, 'model.pt')
+    file_name = os.path.join(model_dir, 'model-'+str(acc)+'.pt')
+    if os.path.exists(file_name):
+        os.remove(file_name)
     with open(file_name, 'wb') as f:
         torch.save(model.state_dict(), f)
 

@@ -25,7 +25,7 @@ parser.add_argument('--device', type=str, default='cuda')
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--decay_rate', type=float, default=1e-3)
 parser.add_argument('--seq_len', type=int, default=5000)
-parser.add_argument('--features', type=int, default=256)
+parser.add_argument('--features', type=int, default=160)
 parser.add_argument('--num-workers', type=int, default=2,
                     help='Num of workers to load data')  # 多线程加载数据
 parser.add_argument('--data_set', type=str, default='dataset')
@@ -33,13 +33,15 @@ parser.add_argument('--log_path', type=str, default='output/logs')
 parser.add_argument('--loss_path', type=str, default='output/loss')
 parser.add_argument('--roc_path', type=str, default='output/roc_auc')
 parser.add_argument('--mat_path', type=str, default='output/conf_matric')
+parser.add_argument('--model_path', type=str, default='output/train')
 parser.add_argument('--resume', default=False, action='store_true', help='Resume')
 parser.add_argument('--model_name', default='82_stemgnn.pt', action='store_true', help='Resume')
 parser.add_argument('--start', default=83, action='store_true', help='Resume')
 
 
 def loadData(args, epoch, k_fold):
-    data_dir = os.path.join(args.data_set, 'ecg_psd')  # 数据目录
+    # data_dir = os.path.join(args.data_set, 'ecg_psd')  # 数据目录
+    data_dir = os.path.join(r'E:\01_科研\dataset\MUSE\ECGDataDenoised_PSD_200')  # 数据目录
 
     label_csv = os.path.join(args.data_set, 'labels.csv')
     train_folds, val_folds, test_folds = split_data(seed=42, k_fold=k_fold)
@@ -73,7 +75,7 @@ if __name__ == '__main__':
     print(f"Total Trainable Params: {total_params}")
 
     result_train_file = os.path.join('output', 'train')
-    result_test_file = os.path.join('output', 'test')
+    # result_test_file = os.path.join('output', 'test')
     log_path = os.path.join(args.log_path,
                             str(date.today()) + '-' + time.strftime("%H-%M-%S", time.localtime()) + '.csv')
     if args.resume:
@@ -85,8 +87,10 @@ if __name__ == '__main__':
     else:
         start = 1
     lrs = []
-    mat_path = os.path.join(args.mat_path, str(date.today()) + '-' + time.strftime("%H-%M-%S", time.localtime()))
-    roc_path = os.path.join(args.roc_path, str(date.today()) + '-' + time.strftime("%H-%M-%S", time.localtime()))
+    time_str = time.strftime("%H-%M-%S", time.localtime())
+    mat_path = os.path.join(args.mat_path, str(date.today()) + '-' + time_str)
+    roc_path = os.path.join(args.roc_path, str(date.today()) + '-' + time_str)
+    model_path = os.path.join(args.model_path, str(date.today()) + '-' + time_str)
 
     max_acc = 0
     count = 0  # 如果有10轮准确率低于max，调整学习率
@@ -112,11 +116,11 @@ if __name__ == '__main__':
                     os.mkdir(mat_path)
                 if not os.path.exists(roc_path):
                     os.mkdir(roc_path)
+                if not os.path.exists(model_path):
+                    os.mkdir(model_path)
                 max_acc = evaluate_res['acc_value']
                 count = 0
-                save_model(model=model, model_dir=result_train_file, epoch=epoch, k_flod=k)
-                # drawing_confusion_matric(confusion_matrix, os.path.join(mat_path, str(epoch) + '.png'))  # 绘制混淆矩阵
-                # drawing_roc_auc(evaluate_res, os.path.join(roc_path, str(epoch) + '.png'))  # 绘制roc_auc曲线
+                save_model(model=model, model_dir=model_path, epoch=epoch, k_flod=k, acc=max_acc)
                 drawing_confusion_matric(confusion_matrix, os.path.join(mat_path, 'matrix.png'))  # 绘制混淆矩阵
                 drawing_roc_auc(evaluate_res, os.path.join(roc_path, 'roc.png'))  # 绘制roc_auc曲线
             else:

@@ -5,6 +5,9 @@ from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
 
+from process.muse_preprocess import feature_columns
+
+
 # from process.variables import features_path
 
 
@@ -89,11 +92,11 @@ class ECGPsdMuseDataset(Dataset):
 
         label = row['class']
         # ecg_特征
-        # features = row[feature_columns]
-        x, y = torch.from_numpy(ecg_data).float(), torch.tensor(label)
+        features = row[feature_columns]
+        x, y, z = torch.from_numpy(ecg_data).float(), torch.tensor(label), torch.tensor(features, dtype=torch.float)
         # x, y = torch.from_numpy(ecg_data.transpose()).float(), torch.tensor(label)
         # , torch.tensor(features, dtype=torch.float)  # ecg数据
-        return x, y
+        return x, y, z
 
     def __len__(self):
         return len(self.labels)
