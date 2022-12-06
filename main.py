@@ -35,13 +35,13 @@ parser.add_argument('--roc_path', type=str, default='output/roc_auc')
 parser.add_argument('--mat_path', type=str, default='output/conf_matric')
 parser.add_argument('--model_path', type=str, default='output/train')
 parser.add_argument('--resume', default=False, action='store_true', help='Resume')
-parser.add_argument('--model_name', default='82_stemgnn.pt', action='store_true', help='Resume')
-parser.add_argument('--start', default=83, action='store_true', help='Resume')
+parser.add_argument('--model_name', default='2022-11-30-21-56-52/model-0.9888392857142857.pt', action='store_true', help='Resume')
+parser.add_argument('--start', default=0, action='store_true', help='Resume')
 
 
 def loadData(args, epoch, k_fold):
-    # data_dir = os.path.join(args.data_set, 'ecg_psd')  # 数据目录
-    data_dir = os.path.join(r'E:\01_科研\dataset\MUSE\ECGDataDenoised_PSD_200')  # 数据目录
+    data_dir = os.path.join(args.data_set, 'ecg_psd')  # 数据目录
+    # data_dir = os.path.join(r'E:\01_科研\dataset\MUSE\ECGDataDenoised_PSD_160')  # 数据目录
 
     label_csv = os.path.join(args.data_set, 'labels.csv')
     train_folds, val_folds, test_folds = split_data(seed=42, k_fold=k_fold)

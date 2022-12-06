@@ -74,7 +74,8 @@ class GraphConvolution(nn.Module):
         # inputs: (b, 4, 1, 12, features)
         # adj: sparse_matrix (4, 12, 12)
         adj = adj.unsqueeze(1)  # (4, 1, 12, 12)
-        support = torch.matmul(self.dropout(inputs), self.weight)
+        support = torch.matmul(inputs, self.weight)
+        # support = torch.matmul(self.dropout(inputs), self.weight)
         output = torch.matmul(adj, support)
         if self.bias is not None:
             return output + self.bias
@@ -100,27 +101,41 @@ class EcgGCNModel(torch.nn.Module):
         self.gru = nn.GRU(input_size=features, hidden_size=features, num_layers=1, batch_first=True)
         self.graph_learning = GraphLearning(channel=leads, width=features)
         self.conv1 = nn.Conv2d(in_channels=4, out_channels=1, kernel_size=1, stride=1, padding=0)
+        self.baseconv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=1)
+
+        cnn = []
+        cnn.append(nn.Conv1d(in_channels=1, out_channels=64, kernel_size=3, stride=1,
+                             padding=1))  # 输入通道为1，即1维向量，卷积核大小为kernel_size *in_channels
+        cnn.append(nn.ReLU())  # ReLu激活函数：一部分神经元输出为0，增加输出的矩阵稀疏性，使得在训练时更容易发现其中的规律
+        cnn.append(nn.BatchNorm1d(64))  # 保持输入数据的均值和方差恒定，使后面网络不用不停调参来适应输入变化，实现网络各层解耦
+        # cnn.append(nn.Dropout(dropout_rate))  #
+        cnn.append(nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1))
+        cnn.append(nn.ReLU())
+        cnn.append(nn.BatchNorm1d(64))
+
+        self.cnn = nn.Sequential(*cnn)
+
         self.gcn_layers = nn.Sequential()
         for i in range(gcn_layer_num):
             if i == 0:
-                self.gcn_layers.append(GraphConvolution(features, features, 0.2))
+                self.gcn_layers.append(GraphConvolution(features, features, dropout_rate))
             elif i < gcn_layer_num - 1:
-                self.gcn_layers.append(GraphConvolution(features, features, 0.2))
+                self.gcn_layers.append(GraphConvolution(features, features, dropout_rate))
             else:
-                self.gcn_layers.append(GraphConvolution(features, features, 0.2))
+                self.gcn_layers.append(GraphConvolution(features, features, dropout_rate))
         self.relu = nn.ReLU()
         self.adaptiveavgpool = nn.AdaptiveAvgPool2d(1)
         self.adaptivemaxpool = nn.AdaptiveMaxPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(features * 12 + 13, 512),  # 将这里改成64试试看
+            nn.Linear(features * 12 + 13 * 64, 1024),
             nn.LeakyReLU(),
-            nn.BatchNorm1d(512),
+            nn.BatchNorm1d(1024),
             nn.Dropout(p=dropout_rate),
-            nn.Linear(512, 512),  # 将这里改成64试试看
+            nn.Linear(1024, 1024),
             nn.LeakyReLU(),
-            nn.BatchNorm1d(512),
+            nn.BatchNorm1d(1024),
             nn.Dropout(p=dropout_rate),
-            nn.Linear(512, self.num_classes),
+            nn.Linear(1024, self.num_classes),
         )
 
     def forward(self, x, features):
@@ -141,6 +156,9 @@ class EcgGCNModel(torch.nn.Module):
         x = x.squeeze()
         x = x.sum(1)
         x = x.reshape(x.size(0), -1)  # res:(batch,leads*4)
-        x = torch.cat((x, features), -1)
+        # 残差分支：特诊卷积
+        features_out = self.cnn(features.unsqueeze(1))
+        features_out = features_out.reshape(features_out.size(0), -1)
+        x = torch.cat((x, features_out), -1)
         x = self.fc(x)
         return x

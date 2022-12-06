@@ -16,9 +16,11 @@ from process.muse_preprocess import super_classes
 n_class = len(super_classes)
 
 
-def split_data(seed=42, k_fold=10):
+def split_data(seed=42, k_fold=None):
     folds = range(1, 11)  # 不包含11
     folds = np.random.RandomState(seed).permutation(folds)  # 根据seec随机排序
+    if k_fold == 'all':
+        return folds
     tran_folds = [k for k in folds if k != k_fold]
     test_folds = [k for k in folds if k == k_fold]
     return tran_folds, folds[8:9], test_folds
