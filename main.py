@@ -23,7 +23,7 @@ parser.add_argument('--epoch', type=int, default=500)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--device', type=str, default='cuda')
 parser.add_argument('--batch_size', type=int, default=64)
-parser.add_argument('--decay_rate', type=float, default=1e-3)
+parser.add_argument('--decay_rate', type=float, default=1e-4)
 parser.add_argument('--seq_len', type=int, default=5000)
 parser.add_argument('--features', type=int, default=160)
 parser.add_argument('--num-workers', type=int, default=2,

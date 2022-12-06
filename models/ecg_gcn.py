@@ -14,6 +14,7 @@ class GraphLearning(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=width, out_channels=1, kernel_size=1, stride=1, padding=0)
         self.conv2 = nn.Conv2d(in_channels=channel, out_channels=channel * channel, kernel_size=1, stride=1, padding=0)
         self.relu = nn.ReLU()
+        self.K = 4
 
     def forward(self, x):
         # x: (batch, leads, 4, seq_len)
@@ -29,11 +30,10 @@ class GraphLearning(nn.Module):
         adj = torch.relu(x)  # 过滤掉负数
         degree = torch.sum(adj, dim=1)
         adj = 0.5 * (adj + adj.T)  # 对称化
-        # adj = 0.5 * (adj + adj.permute(1, 0))  # 对称化
-        degree_l = torch.diag(degree)
-        diagonal_degree_hat = torch.diag(1 / (torch.sqrt(degree) + 1e-7))
+        degree_l = torch.diag(degree)  # 度矩阵
+        diagonal_degree_hat = torch.diag(1 / (torch.sqrt(degree) + 1e-7))  # 度矩阵归一化
         laplacian = torch.matmul(diagonal_degree_hat,
-                                 torch.matmul(degree_l - adj, diagonal_degree_hat))
+                                 torch.matmul(degree_l - adj, diagonal_degree_hat))  # L = D-A
         return self.cheb_polynomial(laplacian)
 
     def cheb_polynomial(self, laplacian):
@@ -44,7 +44,8 @@ class GraphLearning(nn.Module):
         """
         N = laplacian.size(0)  # [N, N]
         laplacian = laplacian.unsqueeze(0)
-        first_laplacian = torch.zeros([1, N, N], device=laplacian.device, dtype=torch.float)
+        # first_laplacian = torch.zeros([1, N, N], device=laplacian.device, dtype=torch.float)
+        first_laplacian = torch.eye(N, device=laplacian.device, dtype=torch.float).unsqueeze(0)
         second_laplacian = laplacian
         third_laplacian = (2 * torch.matmul(laplacian, second_laplacian)) - first_laplacian
         forth_laplacian = 2 * torch.matmul(laplacian, third_laplacian) - second_laplacian
@@ -101,18 +102,16 @@ class EcgGCNModel(torch.nn.Module):
         self.gru = nn.GRU(input_size=features, hidden_size=features, num_layers=1, batch_first=True)
         self.graph_learning = GraphLearning(channel=leads, width=features)
         self.conv1 = nn.Conv2d(in_channels=4, out_channels=1, kernel_size=1, stride=1, padding=0)
-        self.baseconv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=1)
 
-        cnn = []
-        cnn.append(nn.Conv1d(in_channels=1, out_channels=64, kernel_size=3, stride=1,
-                             padding=1))  # 输入通道为1，即1维向量，卷积核大小为kernel_size *in_channels
-        cnn.append(nn.ReLU())  # ReLu激活函数：一部分神经元输出为0，增加输出的矩阵稀疏性，使得在训练时更容易发现其中的规律
-        cnn.append(nn.BatchNorm1d(64))  # 保持输入数据的均值和方差恒定，使后面网络不用不停调参来适应输入变化，实现网络各层解耦
-        # cnn.append(nn.Dropout(dropout_rate))  #
-        cnn.append(nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1))
-        cnn.append(nn.ReLU())
-        cnn.append(nn.BatchNorm1d(64))
-
+        # 统计特征卷积
+        cnn = [
+            nn.Conv1d(in_channels=1, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(64),
+            nn.Conv1d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(64)
+        ]
         self.cnn = nn.Sequential(*cnn)
 
         self.gcn_layers = nn.Sequential()
@@ -124,8 +123,8 @@ class EcgGCNModel(torch.nn.Module):
             else:
                 self.gcn_layers.append(GraphConvolution(features, features, dropout_rate))
         self.relu = nn.ReLU()
-        self.adaptiveavgpool = nn.AdaptiveAvgPool2d(1)
-        self.adaptivemaxpool = nn.AdaptiveMaxPool2d(1)
+        # self.adaptiveavgpool = nn.AdaptiveAvgPool2d(1)
+        # self.adaptivemaxpool = nn.AdaptiveMaxPool2d(1)
         self.fc = nn.Sequential(
             nn.Linear(features * 12 + 13 * 64, 1024),
             nn.LeakyReLU(),
@@ -156,7 +155,7 @@ class EcgGCNModel(torch.nn.Module):
         x = x.squeeze()
         x = x.sum(1)
         x = x.reshape(x.size(0), -1)  # res:(batch,leads*4)
-        # 残差分支：特诊卷积
+        # 残差分支：特征卷积
         features_out = self.cnn(features.unsqueeze(1))
         features_out = features_out.reshape(features_out.size(0), -1)
         x = torch.cat((x, features_out), -1)
