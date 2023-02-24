@@ -82,16 +82,46 @@ def load_model(model_name):
     return model
 
 
+def cals(con_mat, Y_test, Y_pred):
+    spe = []
+    pre = []
+    sen = []
+    acc = []
+    # con_mat = confusion_matrix(Y_test, Y_pred)  # 缺少类别时，矩阵可能是7x7
+    # print(con_mat.shape[0])
+    for i in range(con_mat.shape[0]):
+        number = np.sum(con_mat[:, :])  # 总数量80532
+        tp = con_mat[i][i]
+        fn = np.sum(con_mat[i, :]) - tp
+        fp = np.sum(con_mat[:, i]) - tp
+        tn = number - tp - fn - fp  # 不属于此类，且预测正确
+        spe1 = tn / (tn + fp)
+        spe.append(spe1)
+        pre.append(tp / (tp + fp))
+        sen.append(tp / (tp + fn))
+        acc.append((tp + tn) / (tp+tn+fp+fn))
+
+    print('spe ', spe)
+    print('pre ', pre)
+    print('sen ', sen)
+    print('acc ', acc)
+
+    print(np.mean(spe))
+    print(np.mean(pre))
+    print(np.mean(sen))
+    print(np.mean(acc))
+    return np.mean(acc)
+
 if __name__ == '__main__':
-    model = load_model(os.path.join(r'D:\projects\python-projects\experiments\我的模型\gcn_gen\output\train\2022-12-01-11-31-51\model-0.9866071428571429.pt'))
+    model = load_model(os.path.join(r'D:\projects\python-projects\experiments\我的模型\gcn_gen\output\train\2022-12-06-11-10-45\model-0.9877232142857143.pt'))
     # model = torch.load(os.path.join(r'D:\projects\python-projects\experiments\我的模型\gcn_gen\output\train\2022-12-01-11-02-56\model-0.9854910714285714.pt'))
     # loss
     criterion = nn.CrossEntropyLoss()  # 交叉熵损失函数，常用于多分类任务
     loss_total = 0
     label_csv = os.path.join(r'D:\projects\python-projects\experiments\我的模型\gcn_gen\dataset\labels.csv')
     data_dir = os.path.join(r'E:\01_科研\dataset\MUSE\ECGDataDenoised_PSD_160')  # 数据目录
-    test_folds = split_data(seed=42, k_fold='all')
-    # train_folds, val_folds, test_folds = split_data(seed=42, k_fold='all')
+    # test_folds = split_data(seed=42, k_fold='all')
+    train_folds, val_folds, test_folds = split_data(seed=42, k_fold=1)
     test_dataset = ECGPsdMuseDataset('test', data_dir, label_csv, test_folds, features=160)
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=2, pin_memory=False, drop_last=True)
     pred_list, target_list, pred_scores = [], [], []
@@ -106,5 +136,9 @@ if __name__ == '__main__':
         target_list += labels.cpu().tolist()
         pred_scores += out.cpu().tolist()
     confusion_matrix, evaluate_res = performance(pred_list, target_list, pred_scores)  # 模型评估
-    print(evaluate_res['acc_value'])
+    # print(evaluate_res)
+    pred_list = np.array(pred_list)
+    target_list = np.array(target_list)
+    print(cals(confusion_matrix, pred_list, target_list))
+    # print(evaluate_res['acc_value'])
     # return pred_list, target_list, pred_scores, (loss_total / cnt)
